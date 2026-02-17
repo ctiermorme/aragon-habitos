@@ -1,0 +1,100 @@
+[
+  {
+    "puesto": 1,
+    "comunidad": "Andalucia",
+    "poblacion": 8500187
+  },
+  {
+    "puesto": 2,
+    "comunidad": "Cataluña",
+    "poblacion": 7792611
+  },
+  {
+    "puesto": 3,
+    "comunidad": "Com. Madrid",
+    "poblacion": 6750336
+  },
+  {
+    "puesto": 4,
+    "comunidad": "Valencia",
+    "poblacion": 5097967
+  },
+  {
+    "puesto": 5,
+    "comunidad": "Galicia",
+    "poblacion": 2690464
+  },
+  {
+    "puesto": 6,
+    "comunidad": "Cast. Leon",
+    "poblacion": 2372640
+  },
+  {
+    "puesto": 7,
+    "comunidad": "Pais Vasco",
+    "poblacion": 2208174
+  },
+  {
+    "puesto": 8,
+    "comunidad": "Canarias",
+    "poblacion": 2177701
+  },
+  {
+    "puesto": 9,
+    "comunidad": "Cast. Mancha",
+    "poblacion": 2053328
+  },
+  {
+    "puesto": 10,
+    "comunidad": "Aragon",
+    "poblacion": 1801857,
+    "poblacion_ant": 1339727
+  },
+  {
+    "puesto": 11,
+    "comunidad": "Murcia",
+    "poblacion": 1531878
+  },
+  {
+    "puesto": 12,
+    "comunidad": "Baleares",
+    "poblacion": 1176659
+  },
+  {
+    "puesto": 13,
+    "comunidad": "Extremadura",
+    "poblacion": 1054776
+  },
+  {
+    "puesto": 14,
+    "comunidad": "Asturias",
+    "poblacion": 1004686
+  },
+  {
+    "puesto": 15,
+    "comunidad": "Navarra",
+    "poblacion": 664117
+  },
+  {
+    "puesto": 16,
+    "comunidad": "Cantabria",
+    "poblacion": 585402
+  },
+  {
+    "puesto": 17,
+    "comunidad": "La Rioja",
+    "poblacion": 319892
+  },
+  {
+    "puesto": 18,
+    "comunidad": "Melilla",
+    "poblacion": 85170
+  },
+  {
+    "puesto": 19,
+    "comunidad": "Ceuta",
+    "poblacion": 83117
+  }
+
+
+]

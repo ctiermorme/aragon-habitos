@@ -1,0 +1,266 @@
+[
+  {
+    "puesto": 1,
+    "provincia": "Madrid",
+    "poblacion": 6859914
+  },
+  {
+    "puesto": 2,
+    "provincia": "Barcelona",
+    "poblacion": 5805500
+  },
+  {
+    "puesto": 3,
+    "provincia": "Valencia",
+    "poblacion": 2656291
+  },
+  {
+    "puesto": 4,
+    "provincia": "Alicante",
+    "poblacion": 1993338
+  },
+  {
+    "puesto": 5,
+    "provincia": "Sevilla",
+    "poblacion": 1957210
+  },
+  {
+    "puesto": 6,
+    "provincia": "Malaga",
+    "poblacion": 1751600
+  },
+  {
+    "puesto": 7,
+    "provincia": "Murcia",
+    "poblacion": 1552457
+  },
+  {
+    "puesto": 8,
+    "provincia": "Cadiz",
+    "poblacion": 1250539
+  },
+  {
+    "puesto": 9,
+    "provincia": "Baleares",
+    "poblacion": 1197261
+  },
+  {
+    "puesto": 10,
+    "provincia": "Vizcaya",
+    "poblacion": 1154306
+  },
+  {
+    "puesto": 11,
+    "provincia": "Las Palmas",
+    "poblacion": 1140258
+  },
+  {
+    "puesto": 12,
+    "provincia": "La coruña",
+    "poblacion": 1123426
+  },
+  {
+    "puesto": 13,
+    "provincia": "Tenerife",
+    "poblacion": 1061790
+  },
+  {
+    "puesto": 14,
+    "provincia": "Zaragoza",
+    "poblacion": 1059142,
+    "poblacion_ant": 977413
+  },
+  {
+    "puesto": 15,
+    "provincia": "Asturias",
+    "poblacion": 1005283
+  },
+  {
+    "puesto": 16,
+    "provincia": "Pontevedra",
+    "poblacion": 944245
+  },
+  {
+    "puesto": 17,
+    "provincia": "Granada",
+    "poblacion": 930181
+  },
+  {
+    "puesto": 18,
+    "provincia": "Tarragona",
+    "poblacion": 847556
+  },
+  {
+    "puesto": 19,
+    "provincia": "Gerona",
+    "poblacion": 809266
+  },
+  {
+    "puesto": 20,
+    "provincia": "Cordoba",
+    "poblacion": 773997
+  },
+  {
+    "puesto": 21,
+    "provincia": "Almeria",
+    "poblacion": 753920
+  },
+  {
+    "puesto": 22,
+    "provincia": "Toledo",
+    "poblacion": 728496
+  },
+  {
+    "puesto": 23,
+    "provincia": "Guipuzcoa",
+    "poblacion": 728027
+  },
+  {
+    "puesto": 24,
+    "provincia": "Navarra",
+    "poblacion": 671746
+  },
+  {
+    "puesto": 25,
+    "provincia": "Badajoz",
+    "poblacion": 665089
+  },
+  {
+    "puesto": 26,
+    "provincia": "Jaen",
+    "poblacion": 620242
+  },
+  {
+    "puesto": 27,
+    "provincia": "Castellon",
+    "poblacion": 603952
+  },
+  {
+    "puesto": 28,
+    "provincia": "Cantabria",
+    "poblacion": 588419
+  },
+  {
+    "puesto": 29,
+    "provincia": "Huelva",
+    "poblacion": 530824
+  },
+  {
+    "puesto": 30,
+    "provincia": "Valladolid",
+    "poblacion": 521071
+  },
+  {
+    "puesto": 31,
+    "provincia": "Ciudad Real",
+    "poblacion": 491027
+  },
+  {
+    "puesto": 32,
+    "provincia": "Leon",
+    "poblacion": 447463
+  },
+  {
+    "puesto": 33,
+    "provincia": "Lerida",
+    "poblacion": 446793
+  },
+  {
+    "puesto": 34,
+    "provincia": "Caceres",
+    "poblacion": 387434
+  },
+  {
+    "puesto": 35,
+    "provincia": "Albacete",
+    "poblacion": 387174
+  },
+  {
+    "puesto": 36,
+    "provincia": "Teruel",
+    "poblacion": 386180,
+    "poblacion_ant": 135237
+  },
+  {
+    "puesto": 37,
+    "provincia": "Burgos",
+    "poblacion": 357180
+  },
+  {
+    "puesto": 38,
+    "provincia": "Huesca",
+    "poblacion": 356535,
+    "poblacion_ant": 227077
+  },
+  {
+    "puesto": 39,
+    "provincia": "Alava",
+    "poblacion": 336686
+  },
+  {
+    "puesto": 40,
+    "provincia": "Salamanca",
+    "poblacion": 327170
+  },
+  {
+    "puesto": 41,
+    "provincia": "Lugo",
+    "poblacion": 323956
+  },
+  {
+    "puesto": 42,
+    "provincia": "La Rioja",
+    "poblacion": 322490
+  },
+  {
+    "puesto": 43,
+    "provincia": "Orense",
+    "poblacion": 304550
+  },
+  {
+    "puesto": 44,
+    "provincia": "Guadalajara",
+    "poblacion": 274598
+  },
+  {
+    "puesto": 45,
+    "provincia": "Cuenca",
+    "poblacion": 197139
+  },
+  {
+    "puesto": 46,
+    "provincia": "Zamora",
+    "poblacion": 166366
+  },
+  {
+    "puesto": 47,
+    "provincia": "Avila",
+    "poblacion": 158407
+  },
+  {
+    "puesto": 48,
+    "provincia": "Palencia",
+    "poblacion": 157752
+  },
+  {
+    "puesto": 49,
+    "provincia": "Segovia",
+    "poblacion": 155258
+  },
+  {
+    "puesto": 50,
+    "provincia": "Soria",
+    "poblacion": 89482
+  },
+  {
+    "puesto": 51,
+    "provincia": "Melilla",
+    "poblacion": 85491
+  },
+  {
+    "puesto": 52,
+    "provincia": "Ceuta",
+    "poblacion": 83039
+  }
+
+]
