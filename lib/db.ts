@@ -38,6 +38,7 @@ export interface HabitLog {
   date: string; // ISO date string (YYYY-MM-DD)
   habitId: string;
   status: "yes" | "no" | "null";
+  pointsEarned: number;
   createdAt: number;
   updatedAt: number;
 }
