@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, getTodayString } from "../../lib/db";
+import SpendPointsForm from "../components/SpendPointsForm";
 
 /**
  * Helper: Convert a Date object to ISO YYYY-MM-DD string
@@ -207,6 +208,9 @@ export default function EstadisticasPage() {
   return (
     <div className="space-y-8 p-8">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
+
+      {/* Saldo y Gastar puntos */}
+      <SpendPointsForm />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">

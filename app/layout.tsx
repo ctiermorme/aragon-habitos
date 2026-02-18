@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "./components/Navigation";
 import SeedInitializer from "./components/SeedInitializer";
+import RolloverInitializer from "./components/RolloverInitializer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SeedInitializer />
+        <RolloverInitializer />
         <Navigation />
         {children}
       </body>
