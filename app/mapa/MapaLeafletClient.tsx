@@ -59,6 +59,7 @@ export default function MapaLeafletClient() {
     }
 
     return allMunicipalities
+      .filter((municipality) => !municipality.name.startsWith("__RESTO__"))
       .map((municipality) => {
         const rawExtra = extraByMunicipality.get(municipality.id) ?? 0;
         const extraPopulation = Math.max(rawExtra, 0);

@@ -5,7 +5,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, getTodayString } from "../../lib/db";
 import SpendPointsForm from "../components/SpendPointsForm";
 import rankingMunicipios from "../../data/rankingmunicipios.json";
+import rankingProvincias from "../../data/rankingprovincias.json";
+import rankingComunidades from "../../data/rankingcomunidades.json";
 import { computeAragonRanking } from "./ranking";
+import { computeProvinceRankings } from "./provinceRanking";
+import { computeCommunityRankings } from "./communityRanking";
 
 /**
  * Helper: Convert a Date object to ISO YYYY-MM-DD string
@@ -237,6 +241,16 @@ export default function EstadisticasPage() {
     return [...computed].sort((a, b) => b.total - a.total);
   }, [municipalities, populationTransactions, rankingSortMode]);
 
+  const provinceRanking = useMemo(
+    () => computeProvinceRankings(municipalities, populationTransactions, rankingProvincias),
+    [municipalities, populationTransactions]
+  );
+
+  const communityRanking = useMemo(
+    () => computeCommunityRankings(municipalities, populationTransactions, rankingComunidades),
+    [municipalities, populationTransactions]
+  );
+
   return (
     <div className="space-y-8 p-8">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
@@ -398,6 +412,134 @@ export default function EstadisticasPage() {
         ) : (
           <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
             No hay municipios en la base de datos todavía
+          </div>
+        )}
+      </div>
+
+      {/* Ranking provincias dinámico */}
+      <div>
+        <h2 className="mb-3 text-xl font-semibold">Ranking provincias (dinámico)</h2>
+
+        {provinceRanking.aragonRows.length > 0 ? (
+          <div className="space-y-4">
+            <div className="overflow-x-auto rounded border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población ant</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población nue</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {provinceRanking.aragonRows.map((row) => (
+                    <tr key={row.provincia} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-4 py-2">{row.provincia}</td>
+                      <td className="px-4 py-2 text-right">{row.poblacion_ant.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-right font-semibold">
+                        {row.poblacion_nue.toLocaleString("es-ES")}
+                      </td>
+                      <td className="px-4 py-2 text-right">{row.diferencia.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-right">{row.puesto_ant.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-right">{row.puesto_nue.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-right">{row.delta_puesto.toLocaleString("es-ES")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="rounded border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-2 text-sm font-semibold text-gray-700">Top 5 provincias (contexto)</div>
+              <ul className="space-y-1 text-sm text-gray-700">
+                {provinceRanking.top5.map((row) => (
+                  <li key={row.provincia} className="flex items-center justify-between gap-4">
+                    <span>
+                      #{row.puesto_nue} {row.provincia}
+                    </span>
+                    <span className="font-semibold">{row.poblacion_nue.toLocaleString("es-ES")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
+            No hay datos de provincias todavía
+          </div>
+        )}
+      </div>
+
+      {/* Ranking comunidades dinámico */}
+      <div>
+        <h2 className="mb-3 text-xl font-semibold">Ranking comunidades (dinámico)</h2>
+
+        {communityRanking.aragonRow ? (
+          <div className="space-y-4">
+            <div className="overflow-x-auto rounded border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="border-b border-gray-200 px-4 py-2 text-left">Comunidad</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población ant</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población nue</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-2">{communityRanking.aragonRow.comunidad}</td>
+                    <td className="px-4 py-2 text-right">
+                      {communityRanking.aragonRow.poblacion_ant.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right font-semibold">
+                      {communityRanking.aragonRow.poblacion_nue.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {communityRanking.aragonRow.diferencia.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {communityRanking.aragonRow.puesto_ant.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {communityRanking.aragonRow.puesto_nue.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {communityRanking.aragonRow.delta_puesto.toLocaleString("es-ES")}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {communityRanking.contextAroundAragon.length > 0 ? (
+              <div className="rounded border border-gray-200 bg-gray-50 p-4">
+                <div className="mb-2 text-sm font-semibold text-gray-700">
+                  Contexto alrededor de Aragón (3 arriba / 3 abajo)
+                </div>
+                <ul className="space-y-1 text-sm text-gray-700">
+                  {communityRanking.contextAroundAragon.map((row) => (
+                    <li key={row.comunidad} className="flex items-center justify-between gap-4">
+                      <span>
+                        #{row.puesto_nue} {row.comunidad}
+                      </span>
+                      <span className="font-semibold">{row.poblacion_nue.toLocaleString("es-ES")}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
+            No hay datos de comunidades todavía
           </div>
         )}
       </div>

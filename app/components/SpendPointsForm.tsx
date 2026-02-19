@@ -23,11 +23,11 @@ export default function SpendPointsForm() {
     return earnings - spendings;
   }, [ledgerEntries]);
 
-  // Get all municipalities ordered by name
+  // Get all municipalities ordered by name (excluding RESTO entries)
   const municipalities = useLiveQuery(
     async () => {
       const items = await db.municipalities.orderBy("name").toArray();
-      return items;
+      return items.filter((m) => !m.name.startsWith("__RESTO__"));
     },
     [],
     []

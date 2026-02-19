@@ -76,14 +76,16 @@ export function computeAragonRanking(
     workingByBaseEntry.set(entry, working[index]);
   });
 
-  const rowDrafts = municipalities.map((municipality) => {
-    const base = municipality.basePopulation;
-    const extra = Math.max(extraByMunicipality.get(municipality.id) ?? 0, 0);
-    const total = base + extra;
-    const normalizedName = normalizeName(municipality.name);
-    const normalizedProvince = normalizeName(municipality.province ?? "");
+  const rowDrafts = municipalities
+    .filter((municipality) => !municipality.name.startsWith("__RESTO__"))
+    .map((municipality) => {
+      const base = municipality.basePopulation;
+      const extra = Math.max(extraByMunicipality.get(municipality.id) ?? 0, 0);
+      const total = base + extra;
+      const normalizedName = normalizeName(municipality.name);
+      const normalizedProvince = normalizeName(municipality.province ?? "");
 
-    const candidates = baseByName.get(normalizedName) ?? [];
+      const candidates = baseByName.get(normalizedName) ?? [];
 
     let matchedBaseEntry: BaseRankingEntry | null = null;
     if (candidates.length > 0) {
@@ -128,7 +130,7 @@ export function computeAragonRanking(
       puesto_ant,
       workingEntryId: workingEntry?.id ?? null,
     };
-  });
+    });
 
   const sortedWorking = [...working].sort((a, b) => {
     if (b.poblacion !== a.poblacion) {
