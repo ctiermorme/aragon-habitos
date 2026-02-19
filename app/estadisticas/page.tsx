@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, getTodayString } from "../../lib/db";
 import SpendPointsForm from "../components/SpendPointsForm";
+import rankingMunicipios from "../../data/rankingmunicipios.json";
+import { computeAragonRanking } from "./ranking";
 
 /**
  * Helper: Convert a Date object to ISO YYYY-MM-DD string
@@ -26,6 +28,7 @@ function getLastNDates(n: number): string[] {
 }
 
 export default function EstadisticasPage() {
+  const [rankingSortMode, setRankingSortMode] = useState<"total" | "puesto">("total");
   const today = getTodayString();
   const last7Dates = useMemo(() => getLastNDates(7), []);
   const last14Dates = useMemo(() => getLastNDates(14), []);
@@ -50,6 +53,14 @@ export default function EstadisticasPage() {
   );
 
   const allHabits = useLiveQuery(async () => db.habits.toArray(), [], []);
+
+  const municipalities = useLiveQuery(async () => db.municipalities.toArray(), [], []);
+
+  const populationTransactions = useLiveQuery(
+    async () => db.populationTransactions.toArray(),
+    [],
+    []
+  );
 
   const habitMap = useMemo(() => {
     const map = new Map(allHabits.map((h) => [h.id, h.name]));
@@ -205,6 +216,27 @@ export default function EstadisticasPage() {
       .sort((a, b) => b.pointsEarned - a.pointsEarned);
   }, [habitLogs, last7Dates, habitMap]);
 
+  const rankingRows = useMemo(() => {
+    const computed = computeAragonRanking(
+      municipalities,
+      populationTransactions,
+      rankingMunicipios
+    );
+
+    if (rankingSortMode === "puesto") {
+      return [...computed].sort((a, b) => {
+        const aPuesto = a.puesto_nue ?? Number.MAX_SAFE_INTEGER;
+        const bPuesto = b.puesto_nue ?? Number.MAX_SAFE_INTEGER;
+        if (aPuesto !== bPuesto) {
+          return aPuesto - bPuesto;
+        }
+        return b.total - a.total;
+      });
+    }
+
+    return [...computed].sort((a, b) => b.total - a.total);
+  }, [municipalities, populationTransactions, rankingSortMode]);
+
   return (
     <div className="space-y-8 p-8">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
@@ -303,6 +335,69 @@ export default function EstadisticasPage() {
         ) : (
           <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
             No hay datos todavía
+          </div>
+        )}
+      </div>
+
+      {/* Ranking municipios dinámico */}
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">Ranking municipios (dinámico)</h2>
+          <button
+            type="button"
+            onClick={() =>
+              setRankingSortMode((prev) => (prev === "total" ? "puesto" : "total"))
+            }
+            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            Ordenar: {rankingSortMode === "total" ? "total ↓" : "puesto nuevo ↑"}
+          </button>
+        </div>
+
+        {rankingRows.length > 0 ? (
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Base</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Extra</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Total</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rankingRows.map((row) => (
+                  <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
+                    <td className="px-4 py-2">{row.name}</td>
+                    <td className="px-4 py-2">{row.province}</td>
+                    <td className="px-4 py-2 text-right">{row.base.toLocaleString("es-ES")}</td>
+                    <td className="px-4 py-2 text-right">{row.extra.toLocaleString("es-ES")}</td>
+                    <td className="px-4 py-2 text-right font-semibold">
+                      {row.total.toLocaleString("es-ES")}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {row.puesto_ant !== null ? row.puesto_ant.toLocaleString("es-ES") : "-"}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {row.puesto_nue !== null ? row.puesto_nue.toLocaleString("es-ES") : "-"}
+                    </td>
+                    <td className="px-4 py-2 text-right">{row.diferencia.toLocaleString("es-ES")}</td>
+                    <td className="px-4 py-2 text-right">
+                      {row.delta_puesto !== null ? row.delta_puesto.toLocaleString("es-ES") : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
+            No hay municipios en la base de datos todavía
           </div>
         )}
       </div>

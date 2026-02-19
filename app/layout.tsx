@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import Navigation from "./components/Navigation";
 import SeedInitializer from "./components/SeedInitializer";
 import RolloverInitializer from "./components/RolloverInitializer";
