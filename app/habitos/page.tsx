@@ -149,8 +149,27 @@ export default function HabitosPage() {
     <div className="p-8">
       <h1 className="text-3xl font-bold">Hábitos</h1>
 
-      <p className="mt-2 text-sm text-gray-600">Fecha de hoy: {today}</p>
-      <p className="mt-1 text-sm text-gray-700">Puntos totales de hoy: {todayTotalPoints}</p>
+      <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-white">
+        <div className="flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wide text-white/80">Fecha de hoy</span>
+          <span className="text-lg font-bold">{today}</span>
+        </div>
+        <div className="h-10 w-px bg-white/30" aria-hidden="true" />
+        <div className="flex flex-col">
+          <span className="text-xs font-semibold uppercase tracking-wide text-white/80">Puntos ganados hoy</span>
+          <span
+            className={`text-2xl font-extrabold ${
+              todayTotalPoints > 0
+                ? "text-green-400"
+                : todayTotalPoints < 0
+                ? "text-red-400"
+                : "text-white"
+            }`}
+          >
+            {todayTotalPoints}
+          </span>
+        </div>
+      </div>
 
       {errorMessage && (
         <div className="mt-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -162,11 +181,11 @@ export default function HabitosPage() {
         <table className="min-w-full border-collapse border border-gray-200 text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border border-gray-200 px-3 py-2 text-left">Name</th>
-              <th className="border border-gray-200 px-3 py-2 text-left">Points Yes</th>
-              <th className="border border-gray-200 px-3 py-2 text-left">Points No</th>
-              <th className="border border-gray-200 px-3 py-2 text-left">Today</th>
-              <th className="border border-gray-200 px-3 py-2 text-left">Actions</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Nombre</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Points Yes</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Points No</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Hoy</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -177,15 +196,25 @@ export default function HabitosPage() {
                 const yesIsActive = todayStatus === "yes";
                 const noIsActive = todayStatus === "no";
                 const nullIsActive = todayStatus === "null";
+                const todayStatusIcon =
+                  todayStatus === "yes" ? "✅" : todayStatus === "no" ? "❌" : "➖";
+                const todayStatusColorClass =
+                  todayStatus === "yes"
+                    ? "text-green-600"
+                    : todayStatus === "no"
+                    ? "text-red-600"
+                    : "text-gray-500";
 
                 return (
                   <tr key={habit.id}>
-                    <td className="border border-gray-200 px-3 py-2">{habit.name}</td>
-                    <td className="border border-gray-200 px-3 py-2">{habit.pointsYes}</td>
-                    <td className="border border-gray-200 px-3 py-2">{habit.pointsNo}</td>
-                    <td className="border border-gray-200 px-3 py-2">{todayStatus}</td>
-                    <td className="border border-gray-200 px-3 py-2">
-                      <div className="flex flex-wrap gap-2">
+                    <td className="border border-gray-200 px-3 py-2 text-center text-lg font-bold">{habit.name}</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center">{habit.pointsYes}</td>
+                    <td className="border border-gray-200 px-3 py-2 text-center">{habit.pointsNo}</td>
+                    <td className={`border border-gray-200 px-3 py-2 text-center text-lg ${todayStatusColorClass}`}>
+                      {todayStatusIcon}
+                    </td>
+                    <td className="border border-gray-200 px-3 py-2 text-center">
+                      <div className="flex flex-wrap justify-center gap-2">
                         <button
                           type="button"
                           disabled={isPending}
