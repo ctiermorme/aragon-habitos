@@ -109,7 +109,7 @@ export default function HistorialPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedDateState(date)}
-                      className={`block w-full px-3 py-2 text-left text-sm ${
+                      className={`block w-full px-3 py-2 text-left text-sm text-black ${
                         selectedDate === date
                           ? "bg-blue-100 font-semibold text-blue-800"
                           : "hover:bg-gray-100"
@@ -131,23 +131,23 @@ export default function HistorialPage() {
           {selectedDate ? (
             <div>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-2xl font-semibold">{selectedDate}</h2>
+                <h2 className="text-2xl font-semibold text-black">{selectedDate}</h2>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     disabled={!canGoPrev}
                     onClick={goPrevDay}
-                    className="rounded border border-gray-300 bg-gray-100 px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded border border-gray-300 bg-gray-100 px-3 py-1 text-sm text-black disabled:opacity-50"
                   >
-                    ← Prev
+                    ← Anterior
                   </button>
                   <button
                     type="button"
                     disabled={!canGoNext}
                     onClick={goNextDay}
-                    className="rounded border border-gray-300 bg-gray-100 px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded border border-gray-300 bg-gray-100 px-3 py-1 text-sm text-black disabled:opacity-50"
                   >
-                    Next →
+                    Siguiente →
                   </button>
                 </div>
               </div>
@@ -155,16 +155,26 @@ export default function HistorialPage() {
               <div className="mb-4 rounded border border-gray-200 bg-gray-50 p-3">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <div className="text-xs text-gray-600">Total Points</div>
-                    <div className="text-2xl font-bold">{totals.totalPoints}</div>
+                    <div className="text-sm font-semibold text-gray-700">Puntos Totales</div>
+                    <div
+                      className={`text-3xl font-bold ${
+                        totals.totalPoints > 0
+                          ? "text-green-600"
+                          : totals.totalPoints < 0
+                          ? "text-red-600"
+                          : "text-black"
+                      }`}
+                    >
+                      {totals.totalPoints}
+                    </div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600">Habits Logged</div>
-                    <div className="text-2xl font-bold">{totals.habitsLogged}</div>
+                    <div className="text-sm font-semibold text-gray-700">Hábitos Registrados</div>
+                    <div className="text-3xl text-black">{totals.habitsLogged}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600">Habits Completed</div>
-                    <div className="text-2xl font-bold">{totals.habitsCompleted}</div>
+                    <div className="text-sm font-semibold text-gray-700">Hábitos Completados</div>
+                    <div className="text-3xl text-black">{totals.habitsCompleted}</div>
                   </div>
                 </div>
               </div>
@@ -173,9 +183,9 @@ export default function HistorialPage() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-gray-100">
                     <tr>
-                      <th className="border-b border-gray-200 px-4 py-2 text-left">Habit</th>
-                      <th className="border-b border-gray-200 px-4 py-2 text-left">Status</th>
-                      <th className="border-b border-gray-200 px-4 py-2 text-right">Points</th>
+                      <th className="border-b border-gray-200 px-4 py-2 text-left text-black">Hábito</th>
+                      <th className="border-b border-gray-200 px-4 py-2 text-left text-black">Estado</th>
+                      <th className="border-b border-gray-200 px-4 py-2 text-right text-black">Puntos</th>
                     </tr>
                   </thead>
                   <tbody>
