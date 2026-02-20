@@ -15,7 +15,7 @@ export default function SpendPointsForm() {
 
   const balance = useMemo(() => {
     const earnings = ledgerEntries
-      .filter((e) => e.type === "EARN")
+      .filter((e) => e.type === "EARN" || e.type === "debt_repay_population")
       .reduce((sum, e) => sum + e.amount, 0);
     const spendings = ledgerEntries
       .filter((e) => e.type === "SPEND")

@@ -57,14 +57,21 @@ export interface DailySummary {
 /**
  * Ledger entry - transaction history
  */
+export type LedgerEntryType = "EARN" | "SPEND" | "debt_repay_population";
+
 export interface LedgerEntry {
   id: string;
   date: string; // ISO date string (YYYY-MM-DD)
-  type: "EARN" | "SPEND";
+  type: LedgerEntryType;
   amount: number;
   description?: string;
   relatedDailySummaryDate?: string; // link to daily summary date (optional)
+  metadata?: {
+    municipalityId?: string;
+    municipalityName?: string;
+  };
   createdAt: number;
+  updatedAt?: number;
 }
 
 /**
@@ -93,6 +100,14 @@ export interface PopulationTransaction {
 }
 
 /**
+ * App state - key/value storage for lightweight flags
+ */
+export interface AppState {
+  key: string;
+  value: string;
+}
+
+/**
  * Dexie Database definition
  */
 export class AragonHabitosDB extends Dexie {
@@ -102,6 +117,7 @@ export class AragonHabitosDB extends Dexie {
   ledger!: Table<LedgerEntry, string>;
   municipalities!: Table<Municipality, string>;
   populationTransactions!: Table<PopulationTransaction, string>;
+  appState!: Table<AppState, string>;
 
   constructor() {
     super("AragonHabitosDB");
@@ -124,6 +140,16 @@ export class AragonHabitosDB extends Dexie {
       // unique per (municipalityId + date) if you want 1 tx per day,
       // keep it if that matches your logic; otherwise remove the unique index
       populationTransactions: "id, municipalityId, date, [municipalityId+date], createdAt",
+    });
+
+    this.version(2).stores({
+      habits: "id, &name, active, updatedAt",
+      habitLogs: "id, date, habitId, [date+habitId], updatedAt",
+      dailySummaries: "date, updatedAt",
+      ledger: "id, date, type, createdAt",
+      municipalities: "id, &name, province, basePopulation",
+      populationTransactions: "id, municipalityId, date, [municipalityId+date], createdAt",
+      appState: "key",
     });
   }
 }

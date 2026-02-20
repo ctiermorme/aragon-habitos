@@ -182,10 +182,10 @@ export default function HabitosPage() {
           <thead className="bg-gray-100">
             <tr>
               <th className="border border-gray-200 px-3 py-2 text-center text-black">Nombre</th>
-              <th className="border border-gray-200 px-3 py-2 text-center text-black">Points Yes</th>
-              <th className="border border-gray-200 px-3 py-2 text-center text-black">Points No</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Puntos Sí</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Puntos No</th>
               <th className="border border-gray-200 px-3 py-2 text-center text-black">Hoy</th>
-              <th className="border border-gray-200 px-3 py-2 text-center text-black">Actions</th>
+              <th className="border border-gray-200 px-3 py-2 text-center text-black">Acciones</th>
             </tr>
           </thead>
           <tbody>
