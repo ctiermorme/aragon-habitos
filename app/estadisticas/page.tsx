@@ -1,548 +1,461 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, getTodayString } from "../../lib/db";
+import { db, makeId, getCurrentTimestamp, getTodayString } from "../../lib/db";
 import SpendPointsForm from "../components/SpendPointsForm";
 import rankingMunicipios from "../../data/rankingmunicipios.json";
 import rankingProvincias from "../../data/rankingprovincias.json";
 import rankingComunidades from "../../data/rankingcomunidades.json";
-import { computeAragonRanking } from "./ranking";
-import { computeProvinceRankings } from "./provinceRanking";
-import { computeCommunityRankings } from "./communityRanking";
+import { computeAragonRanking, AragonRankingRow } from "./ranking";
 
-/**
- * Helper: Convert a Date object to ISO YYYY-MM-DD string
- */
-function getISODateString(date: Date): string {
-  return date.toISOString().split("T")[0];
-}
+const ARAGON_PROVINCES = ["zaragoza", "huesca", "teruel"];
 
-/**
- * Helper: Get an array of the last N dates (including today), in descending order
- */
-function getLastNDates(n: number): string[] {
-  const dates: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    dates.push(getISODateString(d));
-  }
-  return dates;
+function normalizeName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }
 
 export default function EstadisticasPage() {
-  const [rankingSortMode, setRankingSortMode] = useState<"total" | "puesto">("total");
-  const today = getTodayString();
-  const last7Dates = useMemo(() => getLastNDates(7), []);
-  const last14Dates = useMemo(() => getLastNDates(14), []);
-
-  // === Query all data ===
-  const dailySummaries = useLiveQuery(
-    async () => {
-      const items = await db.dailySummaries.where("date").anyOf(last14Dates).toArray();
-      return items;
-    },
-    [last14Dates],
-    []
-  );
-
-  const habitLogs = useLiveQuery(
-    async () => {
-      const items = await db.habitLogs.where("date").anyOf(last14Dates).toArray();
-      return items;
-    },
-    [last14Dates],
-    []
-  );
-
-  const allHabits = useLiveQuery(async () => db.habits.toArray(), [], []);
+  const [spendingMunicipalityId, setSpendingMunicipalityId] = useState<string>("");
+  const [amountToSpend, setAmountToSpend] = useState<string>("1");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const municipalities = useLiveQuery(async () => db.municipalities.toArray(), [], []);
-
   const populationTransactions = useLiveQuery(
     async () => db.populationTransactions.toArray(),
     [],
     []
   );
+  const ledgerEntries = useLiveQuery(async () => db.ledger.toArray(), [], []);
 
-  const habitMap = useMemo(() => {
-    const map = new Map(allHabits.map((h) => [h.id, h.name]));
-    return map;
-  }, [allHabits]);
+  const balance = useMemo(() => {
+    const earnings = ledgerEntries
+      .filter((e) => e.type === "EARN" || e.type === "debt_repay_population")
+      .reduce((sum, e) => sum + e.amount, 0);
+    const spendings = ledgerEntries
+      .filter((e) => e.type === "SPEND")
+      .reduce((sum, e) => sum + e.amount, 0);
+    return earnings - spendings;
+  }, [ledgerEntries]);
 
-  // === Helper: Compute daily stats from habitLogs if dailySummaries is empty ===
-  const dailyStatsFromLogs = useMemo(() => {
-    if (dailySummaries && dailySummaries.length > 0) {
-      return null; // Use dailySummaries instead
-    }
-
-    const map = new Map<string, { totalPoints: number; habitsLogged: number; habitsCompleted: number }>();
-    for (const log of habitLogs) {
-      if (!map.has(log.date)) {
-        map.set(log.date, { totalPoints: 0, habitsLogged: 0, habitsCompleted: 0 });
-      }
-      const stats = map.get(log.date)!;
-      stats.totalPoints += log.pointsEarned;
-      if (log.status !== "null") {
-        stats.habitsLogged += 1;
-      }
-      if (log.status === "yes") {
-        stats.habitsCompleted += 1;
-      }
+  const extraByMunicipality = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const tx of populationTransactions) {
+      const current = map.get(tx.municipalityId) ?? 0;
+      map.set(tx.municipalityId, current + tx.amount);
     }
     return map;
-  }, [dailySummaries, habitLogs]);
+  }, [populationTransactions]);
 
-  // === Today's points ===
-  const todaysPoints = useMemo(() => {
-    if (dailySummaries.length > 0) {
-      const today_summary = dailySummaries.find((s) => s.date === today);
-      return today_summary?.totalPoints ?? 0;
+  const baseByProvince = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const municipality of municipalities) {
+      const key = normalizeName(municipality.province);
+      map.set(key, (map.get(key) ?? 0) + municipality.basePopulation);
     }
+    return map;
+  }, [municipalities]);
 
-    // Compute from habitLogs
-    return habitLogs
-      .filter((log) => log.date === today)
-      .reduce((sum, log) => sum + log.pointsEarned, 0);
-  }, [dailySummaries, habitLogs, today]);
-
-  // === Last 7 days points ===
-  const last7Points = useMemo(() => {
-    if (dailySummaries.length > 0) {
-      return dailySummaries
-        .filter((s) => last7Dates.includes(s.date))
-        .reduce((sum, s) => sum + s.totalPoints, 0);
+  const totalByProvince = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const municipality of municipalities) {
+      const key = normalizeName(municipality.province);
+      const extra = Math.max(0, extraByMunicipality.get(municipality.id) ?? 0);
+      map.set(key, (map.get(key) ?? 0) + municipality.basePopulation + extra);
     }
+    return map;
+  }, [municipalities, extraByMunicipality]);
 
-    // Compute from habitLogs
-    return habitLogs
-      .filter((log) => last7Dates.includes(log.date))
-      .reduce((sum, log) => sum + log.pointsEarned, 0);
-  }, [dailySummaries, habitLogs, last7Dates]);
-
-  // === Today's completion percentage ===
-  const todaysCompletionPercent = useMemo(() => {
-    if (dailySummaries.length > 0) {
-      const today_summary = dailySummaries.find((s) => s.date === today);
-      if (!today_summary || today_summary.habitsLogged === 0) {
-        return 0;
-      }
-      return Math.round((today_summary.habitsCompleted / today_summary.habitsLogged) * 100);
-    }
-
-    // Compute from habitLogs
-    const todayLogs = habitLogs.filter((log) => log.date === today);
-    const logged = todayLogs.filter((log) => log.status !== "null").length;
-    const completed = todayLogs.filter((log) => log.status === "yes").length;
-    if (logged === 0) {
-      return 0;
-    }
-    return Math.round((completed / logged) * 100);
-  }, [dailySummaries, habitLogs, today]);
-
-  // === Streak calculation ===
-  const streak = useMemo(() => {
-    let count = 0;
-    for (const date of last14Dates) {
-      let hasCompletion = false;
-
-      if (dailySummaries.length > 0) {
-        const summary = dailySummaries.find((s) => s.date === date);
-        hasCompletion = (summary?.habitsCompleted ?? 0) > 0;
-      } else {
-        const logsForDate = habitLogs.filter((log) => log.date === date && log.status === "yes");
-        hasCompletion = logsForDate.length > 0;
-      }
-
-      if (hasCompletion) {
-        count++;
-      } else {
-        break;
-      }
-    }
-    return count;
-  }, [dailySummaries, habitLogs, last14Dates]);
-
-  // === Last 14 days table data ===
-  const last14Table = useMemo(() => {
-    if (dailySummaries.length > 0) {
-      return dailySummaries
-        .filter((s) => last14Dates.includes(s.date))
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .map((s) => ({
-          date: s.date,
-          totalPoints: s.totalPoints,
-          habitsLogged: s.habitsLogged,
-          habitsCompleted: s.habitsCompleted,
-        }));
-    }
-
-    // Compute from habitLogs
-    const map = dailyStatsFromLogs ?? new Map();
-    return Array.from(map.entries())
-      .filter(([date]) => last14Dates.includes(date))
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([date, stats]) => ({
-        date,
-        ...stats,
-      }));
-  }, [dailySummaries, dailyStatsFromLogs, last14Dates]);
-
-  // === Top 7-day habits ===
-  const top7Habits = useMemo(() => {
-    const habitStats = new Map<
-      string,
-      { yesCount: number; loggedCount: number; pointsEarned: number }
-    >();
-
-    for (const log of habitLogs.filter((h) => last7Dates.includes(h.date))) {
-      if (!habitStats.has(log.habitId)) {
-        habitStats.set(log.habitId, { yesCount: 0, loggedCount: 0, pointsEarned: 0 });
-      }
-      const stat = habitStats.get(log.habitId)!;
-      stat.pointsEarned += log.pointsEarned;
-      if (log.status !== "null") {
-        stat.loggedCount += 1;
-      }
-      if (log.status === "yes") {
-        stat.yesCount += 1;
-      }
-    }
-
-    return Array.from(habitStats.entries())
-      .map(([habitId, stat]) => ({
-        habitId,
-        habitName: habitMap.get(habitId) || "(deleted habit)",
-        ...stat,
-        yesRate: stat.loggedCount > 0 ? Math.round((stat.yesCount / stat.loggedCount) * 100) : 0,
-      }))
-      .sort((a, b) => b.pointsEarned - a.pointsEarned);
-  }, [habitLogs, last7Dates, habitMap]);
-
-  const rankingRows = useMemo(() => {
+  const aragonRankingRows = useMemo(() => {
     const computed = computeAragonRanking(
       municipalities,
       populationTransactions,
       rankingMunicipios
     );
+    const sorted = [...computed].sort((a, b) => b.total - a.total);
+    
+    // Add Aragon ranking position (1st, 2nd, 3rd, etc.)
+    return sorted.map((row, index) => ({
+      ...row,
+      aragonRanking: index + 1,
+    }));
+  }, [municipalities, populationTransactions]);
 
-    if (rankingSortMode === "puesto") {
-      return [...computed].sort((a, b) => {
-        const aPuesto = a.puesto_nue ?? Number.MAX_SAFE_INTEGER;
-        const bPuesto = b.puesto_nue ?? Number.MAX_SAFE_INTEGER;
-        if (aPuesto !== bPuesto) {
-          return aPuesto - bPuesto;
-        }
-        return b.total - a.total;
-      });
+  const aragonByProvince = useMemo(() => {
+    const groups: Record<string, AragonRankingRow[]> = {
+      zaragoza: [],
+      huesca: [],
+      teruel: [],
+    };
+
+    for (const row of aragonRankingRows) {
+      const key = normalizeName(row.province);
+      if (groups[key]) {
+        groups[key].push(row);
+      }
     }
 
-    return [...computed].sort((a, b) => b.total - a.total);
-  }, [municipalities, populationTransactions, rankingSortMode]);
+    // Assign provincial rankings within each province
+    Object.values(groups).forEach((rows) => {
+      rows.sort((a, b) => b.total - a.total);
+      rows.forEach((row, index) => {
+        (row as any).provincialRanking = index + 1;
+      });
+    });
 
-  const provinceRanking = useMemo(
-    () => computeProvinceRankings(municipalities, populationTransactions, rankingProvincias),
-    [municipalities, populationTransactions]
-  );
+    return groups;
+  }, [aragonRankingRows]);
 
-  const communityRanking = useMemo(
-    () => computeCommunityRankings(municipalities, populationTransactions, rankingComunidades),
-    [municipalities, populationTransactions]
-  );
+  const handleAddPopulation = async (municipalityId: string) => {
+    const amount = parseInt(amountToSpend, 10) || 0;
+    if (amount <= 0 || amount > balance || balance < 0) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const now = getCurrentTimestamp();
+      const today = getTodayString();
+
+      await db.transaction("rw", db.populationTransactions, db.ledger, async () => {
+        await db.populationTransactions.add({
+          id: makeId(),
+          municipalityId: municipalityId,
+          date: today,
+          amount: amount,
+          reason: "Manual spend",
+          createdAt: now,
+        });
+
+        await db.ledger.add({
+          id: makeId(),
+          type: "SPEND",
+          amount: amount,
+          date: today,
+          reason: `Spent on population`,
+          createdAt: now,
+        });
+      });
+
+      setAmountToSpend("1");
+    } catch (error) {
+      console.error("Error adding population:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const provinceTableRows = useMemo(() => {
+    const rows = rankingProvincias.map((entry) => {
+      const key = normalizeName(entry.provincia);
+      const isAragonProvince = ARAGON_PROVINCES.includes(key);
+      const baseOfficial = (entry as any).poblacion_ant ?? entry.poblacion;
+      const baseAragon = baseByProvince.get(key) ?? baseOfficial;
+      const total = isAragonProvince ? (totalByProvince.get(key) ?? baseAragon) : entry.poblacion;
+
+      return {
+        provincia: entry.provincia,
+        poblacion: total,
+        poblacionBaseAragon: isAragonProvince ? baseAragon : undefined,
+      };
+    });
+
+    const sorted = rows.sort((a, b) => {
+      if (b.poblacion !== a.poblacion) {
+        return b.poblacion - a.poblacion;
+      }
+      return a.provincia.localeCompare(b.provincia, "es");
+    });
+
+    return sorted.map((row, index) => ({
+      ...row,
+      puesto: index + 1,
+    }));
+  }, [baseByProvince, totalByProvince]);
+
+  const communityTableRows = useMemo(() => {
+    let baseAragon = 0;
+    let totalAragon = 0;
+
+    for (const municipality of municipalities) {
+      const provinceKey = normalizeName(municipality.province);
+      if (!ARAGON_PROVINCES.includes(provinceKey)) {
+        continue;
+      }
+      const extra = Math.max(0, extraByMunicipality.get(municipality.id) ?? 0);
+      baseAragon += municipality.basePopulation;
+      totalAragon += municipality.basePopulation + extra;
+    }
+
+    const rows = rankingComunidades.map((entry) => {
+      if (normalizeName(entry.comunidad) !== "aragon") {
+        return {
+          comunidad: entry.comunidad,
+          poblacion: entry.poblacion,
+        };
+      }
+
+      return {
+        comunidad: entry.comunidad,
+        poblacion: totalAragon,
+        poblacionBaseAragon: baseAragon,
+      };
+    });
+
+    const sorted = rows.sort((a, b) => {
+      if (b.poblacion !== a.poblacion) {
+        return b.poblacion - a.poblacion;
+      }
+      return a.comunidad.localeCompare(b.comunidad, "es");
+    });
+
+    return sorted.map((row, index) => ({
+      ...row,
+      puesto: index + 1,
+    }));
+  }, [municipalities, extraByMunicipality]);
 
   return (
     <div className="space-y-8 p-8">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
 
-      {/* Saldo y Gastar puntos */}
       <SpendPointsForm />
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
-        {/* Card 1: Today's Points */}
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <div className="text-xs font-semibold text-gray-600">Puntos hoy</div>
-          <div className="mt-2 text-4xl font-bold text-blue-600">{todaysPoints}</div>
-        </div>
-
-        {/* Card 2: Last 7 Days Points */}
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <div className="text-xs font-semibold text-gray-600">Puntos 7 días</div>
-          <div className="mt-2 text-4xl font-bold text-green-600">{last7Points}</div>
-        </div>
-
-        {/* Card 3: Today's Completion % */}
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <div className="text-xs font-semibold text-gray-600">% completados hoy</div>
-          <div className="mt-2 text-4xl font-bold text-purple-600">{todaysCompletionPercent}%</div>
-        </div>
-
-        {/* Card 4: Streak */}
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <div className="text-xs font-semibold text-gray-600">Racha</div>
-          <div className="mt-2 text-4xl font-bold text-orange-600">{streak}</div>
-        </div>
-      </div>
-
-      {/* Last 14 Days Table */}
-      <div>
-        <h2 className="mb-3 text-xl font-semibold">Últimos 14 días</h2>
-        {last14Table.length > 0 ? (
-          <div className="overflow-x-auto rounded border border-gray-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border-b border-gray-200 px-4 py-2 text-left">Fecha</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puntos totales</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Hábitos registrados</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Completados</th>
-                </tr>
-              </thead>
-              <tbody>
-                {last14Table.map((row) => (
-                  <tr key={row.date} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2">{row.date}</td>
-                    <td className="px-4 py-2 text-right font-semibold">{row.totalPoints}</td>
-                    <td className="px-4 py-2 text-right">{row.habitsLogged}</td>
-                    <td className="px-4 py-2 text-right">{row.habitsCompleted}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
-            No hay datos todavía
-          </div>
-        )}
-      </div>
-
-      {/* Top 7-Day Habits */}
-      <div>
-        <h2 className="mb-3 text-xl font-semibold">Top hábitos (7 días)</h2>
-        {top7Habits.length > 0 ? (
-          <div className="overflow-x-auto rounded border border-gray-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border-b border-gray-200 px-4 py-2 text-left">Hábito</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puntos</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Completados</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Registrados</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">% acierto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top7Habits.map((habit) => (
-                  <tr key={habit.habitId} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2">{habit.habitName}</td>
-                    <td className="px-4 py-2 text-right font-semibold">{habit.pointsEarned}</td>
-                    <td className="px-4 py-2 text-right">{habit.yesCount}</td>
-                    <td className="px-4 py-2 text-right">{habit.loggedCount}</td>
-                    <td className="px-4 py-2 text-right">{habit.yesRate}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
-            No hay datos todavía
-          </div>
-        )}
-      </div>
-
-      {/* Ranking municipios dinámico */}
-      <div>
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">Ranking municipios (dinámico)</h2>
-          <button
-            type="button"
-            onClick={() =>
-              setRankingSortMode((prev) => (prev === "total" ? "puesto" : "total"))
-            }
-            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50"
-          >
-            Ordenar: {rankingSortMode === "total" ? "total ↓" : "puesto nuevo ↑"}
-          </button>
-        </div>
-
-        {rankingRows.length > 0 ? (
-          <div className="overflow-x-auto rounded border border-gray-200">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Base</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Extra</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Total</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rankingRows.map((row) => (
-                  <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2">{row.name}</td>
-                    <td className="px-4 py-2">{row.province}</td>
-                    <td className="px-4 py-2 text-right">{row.base.toLocaleString("es-ES")}</td>
-                    <td className="px-4 py-2 text-right">{row.extra.toLocaleString("es-ES")}</td>
-                    <td className="px-4 py-2 text-right font-semibold">
-                      {row.total.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {row.puesto_ant !== null ? row.puesto_ant.toLocaleString("es-ES") : "-"}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {row.puesto_nue !== null ? row.puesto_nue.toLocaleString("es-ES") : "-"}
-                    </td>
-                    <td className="px-4 py-2 text-right">{row.diferencia.toLocaleString("es-ES")}</td>
-                    <td className="px-4 py-2 text-right">
-                      {row.delta_puesto !== null ? row.delta_puesto.toLocaleString("es-ES") : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
-            No hay municipios en la base de datos todavía
-          </div>
-        )}
-      </div>
-
-      {/* Ranking provincias dinámico */}
-      <div>
-        <h2 className="mb-3 text-xl font-semibold">Ranking provincias (dinámico)</h2>
-
-        {provinceRanking.aragonRows.length > 0 ? (
-          <div className="space-y-4">
+      <details className="rounded border border-gray-200" open>
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
+          <span>Municipios de Aragón (ordenados por población)</span>
+          <span className="text-base font-semibold text-white">Desplegar ▾</span>
+        </summary>
+        <div className="px-4 pb-4">
+          {aragonRankingRows.length > 0 ? (
             <div className="overflow-x-auto rounded border border-gray-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-100">
+                <thead className="bg-gray-100 text-black">
                   <tr>
+                    <th className="border-b border-gray-200 px-4 py-2 text-left">Puesto</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Nacional</th>
                     <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población ant</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población nue</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {provinceRanking.aragonRows.map((row) => (
-                    <tr key={row.provincia} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-4 py-2">{row.provincia}</td>
-                      <td className="px-4 py-2 text-right">{row.poblacion_ant.toLocaleString("es-ES")}</td>
+                  {aragonRankingRows.map((row) => (
+                    <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-4 py-2">{row.aragonRanking}</td>
+                      <td className="px-4 py-2">{row.name}</td>
                       <td className="px-4 py-2 text-right font-semibold">
-                        {row.poblacion_nue.toLocaleString("es-ES")}
+                        {row.total.toLocaleString("es-ES")}
                       </td>
-                      <td className="px-4 py-2 text-right">{row.diferencia.toLocaleString("es-ES")}</td>
-                      <td className="px-4 py-2 text-right">{row.puesto_ant.toLocaleString("es-ES")}</td>
-                      <td className="px-4 py-2 text-right">{row.puesto_nue.toLocaleString("es-ES")}</td>
-                      <td className="px-4 py-2 text-right">{row.delta_puesto.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-right">
+                        {row.puesto_nue !== null ? row.puesto_nue.toLocaleString("es-ES") : "-"}
+                      </td>
+                      <td className="px-4 py-2">{row.province}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            <div className="rounded border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-2 text-sm font-semibold text-gray-700">Top 5 provincias (contexto)</div>
-              <ul className="space-y-1 text-sm text-gray-700">
-                {provinceRanking.top5.map((row) => (
-                  <li key={row.provincia} className="flex items-center justify-between gap-4">
-                    <span>
-                      #{row.puesto_nue} {row.provincia}
-                    </span>
-                    <span className="font-semibold">{row.poblacion_nue.toLocaleString("es-ES")}</span>
-                  </li>
-                ))}
-              </ul>
+          ) : (
+            <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
+              No hay municipios en la base de datos todavía
             </div>
-          </div>
-        ) : (
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
-            No hay datos de provincias todavía
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </details>
 
-      {/* Ranking comunidades dinámico */}
-      <div>
-        <h2 className="mb-3 text-xl font-semibold">Ranking comunidades (dinámico)</h2>
-
-        {communityRanking.aragonRow ? (
-          <div className="space-y-4">
-            <div className="overflow-x-auto rounded border border-gray-200">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="border-b border-gray-200 px-4 py-2 text-left">Comunidad</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población ant</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Población nue</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto ant</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto nue</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Δ puesto</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-2">{communityRanking.aragonRow.comunidad}</td>
-                    <td className="px-4 py-2 text-right">
-                      {communityRanking.aragonRow.poblacion_ant.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right font-semibold">
-                      {communityRanking.aragonRow.poblacion_nue.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {communityRanking.aragonRow.diferencia.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {communityRanking.aragonRow.puesto_ant.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {communityRanking.aragonRow.puesto_nue.toLocaleString("es-ES")}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {communityRanking.aragonRow.delta_puesto.toLocaleString("es-ES")}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {communityRanking.contextAroundAragon.length > 0 ? (
-              <div className="rounded border border-gray-200 bg-gray-50 p-4">
-                <div className="mb-2 text-sm font-semibold text-gray-700">
-                  Contexto alrededor de Aragón (3 arriba / 3 abajo)
-                </div>
-                <ul className="space-y-1 text-sm text-gray-700">
-                  {communityRanking.contextAroundAragon.map((row) => (
-                    <li key={row.comunidad} className="flex items-center justify-between gap-4">
-                      <span>
-                        #{row.puesto_nue} {row.comunidad}
-                      </span>
-                      <span className="font-semibold">{row.poblacion_nue.toLocaleString("es-ES")}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+      <details className="rounded border border-gray-200" open>
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
+          <span>Municipios por provincia (ordenados por población)</span>
+          <span className="text-base font-semibold text-white">Desplegar ▾</span>
+        </summary>
+        <div className="px-4 pb-4">
+          <div className="mb-4 flex items-center gap-4">
+            <label className="text-sm font-medium">Cantidad a gastar:</label>
+            <input
+              type="number"
+              min="1"
+              value={amountToSpend}
+              onChange={(e) => setAmountToSpend(e.target.value)}
+              className="w-24 rounded border border-gray-300 px-3 py-1"
+            />
+            <span className="text-sm text-gray-600">
+              Saldo: <span className="font-semibold">{balance.toLocaleString("es-ES")}</span>
+            </span>
           </div>
-        ) : (
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 text-center text-gray-500">
-            No hay datos de comunidades todavía
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-black">
+                <tr>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Población Nueva</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Nuevo</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Población Base</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Antiguo</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(["zaragoza", "huesca", "teruel"] as const).map((provinceKey) => {
+                  const rows = aragonByProvince[provinceKey] ?? [];
+                  const displayName = rows[0]?.province ?? provinceKey.toUpperCase();
+
+                  return (
+                    <Fragment key={provinceKey}>
+                      <tr className="bg-gray-50">
+                        <td className="px-4 py-2 font-semibold" colSpan={7}>
+                          {displayName}
+                        </td>
+                      </tr>
+                      {rows.length > 0 ? (
+                        rows.map((row) => {
+                          const deltaPuesto = row.delta_puesto !== null ? row.delta_puesto : 0;
+                          const differenceDisplay =
+                            deltaPuesto > 0
+                              ? `+${deltaPuesto}`
+                              : deltaPuesto < 0
+                              ? `${deltaPuesto}`
+                              : "—";
+                          return (
+                            <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
+                              <td className="px-4 py-2">{row.name}</td>
+                              <td className="px-4 py-2 text-right font-semibold">
+                                {row.total.toLocaleString("es-ES")}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {(row as any).provincialRanking ?? "-"}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {row.base.toLocaleString("es-ES")}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                {row.puesto_ant !== null ? row.puesto_ant.toLocaleString("es-ES") : "-"}
+                              </td>
+                              <td className="px-4 py-2 text-right">{differenceDisplay}</td>
+                              <td className="px-4 py-2 text-center">
+                                <button
+                                  onClick={() => handleAddPopulation(row.municipalityId)}
+                                  disabled={isSubmitting || balance < parseInt(amountToSpend, 10) || balance < 0}
+                                  className="rounded bg-blue-500 px-3 py-1 text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                  Añadir población
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td className="px-4 py-2 text-gray-500" colSpan={7}>
+                            Sin municipios
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      </details>
+
+      <details className="rounded border border-gray-200" open>
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
+          <span>Provincias de España (ordenadas por población)</span>
+          <span className="text-base font-semibold text-white">Desplegar ▾</span>
+        </summary>
+        <div className="px-4 pb-4">
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-black">
+                <tr>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Provincia</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Población</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {provinceTableRows.map((row) => {
+                  const isAragonProvince = row.poblacionBaseAragon !== undefined;
+                  const rowClass = isAragonProvince
+                    ? "border-b border-gray-200 hover:bg-gray-50 bg-white/10 text-white font-extrabold"
+                    : "border-b border-gray-200 hover:bg-gray-50";
+                  
+                  return (
+                    <tr key={row.provincia} className={rowClass}>
+                      <td className="px-4 py-2 text-center">{row.provincia}</td>
+                      <td className="px-4 py-2 text-center font-semibold text-yellow-200">
+                        {row.poblacion.toLocaleString("es-ES")}
+                      </td>
+                      <td className="px-4 py-2 text-center italic">{row.puesto.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-center font-semibold">
+                        {row.poblacionBaseAragon !== undefined
+                          ? row.poblacionBaseAragon.toLocaleString("es-ES")
+                          : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details className="rounded border border-gray-200" open>
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
+          <span>Comunidades autónomas (ordenadas por población)</span>
+          <span className="text-base font-semibold text-white">Desplegar ▾</span>
+        </summary>
+        <div className="px-4 pb-4">
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-black">
+                <tr>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Comunidad</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Población</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {communityTableRows.map((row) => {
+                  const isAragon = row.poblacionBaseAragon !== undefined;
+                  const communityNameClass = isAragon ? "px-4 py-2 text-center font-bold" : "px-4 py-2 text-center";
+                  const puestoClass = isAragon
+                    ? "px-4 py-2 text-center font-bold italic"
+                    : "px-4 py-2 text-center italic";
+                  const rowClass = isAragon
+                    ? "border-b border-gray-200 hover:bg-gray-50 bg-white/10 text-white font-extrabold"
+                    : "border-b border-gray-200 hover:bg-gray-50";
+                  
+                  return (
+                    <tr key={row.comunidad} className={rowClass}>
+                      <td className={communityNameClass}>{row.comunidad}</td>
+                      <td className="px-4 py-2 text-center font-semibold text-yellow-200">
+                        {row.poblacion.toLocaleString("es-ES")}
+                      </td>
+                      <td className={puestoClass}>{row.puesto.toLocaleString("es-ES")}</td>
+                      <td className="px-4 py-2 text-center font-semibold">
+                        {row.poblacionBaseAragon !== undefined
+                          ? row.poblacionBaseAragon.toLocaleString("es-ES")
+                          : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }
