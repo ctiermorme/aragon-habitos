@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, makeId, getCurrentTimestamp, getTodayString } from "../../lib/db";
+import { db } from "../../lib/db";
 import SpendPointsForm from "../components/SpendPointsForm";
 import rankingMunicipios from "../../data/rankingmunicipios.json";
 import rankingProvincias from "../../data/rankingprovincias.json";
@@ -20,9 +20,6 @@ function normalizeName(value: string): string {
 }
 
 export default function EstadisticasPage() {
-  const [spendingMunicipalityId, setSpendingMunicipalityId] = useState<string>("");
-  const [amountToSpend, setAmountToSpend] = useState<string>("1");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const municipalities = useLiveQuery(async () => db.municipalities.toArray(), [], []);
   const populationTransactions = useLiveQuery(
@@ -30,17 +27,6 @@ export default function EstadisticasPage() {
     [],
     []
   );
-  const ledgerEntries = useLiveQuery(async () => db.ledger.toArray(), [], []);
-
-  const balance = useMemo(() => {
-    const earnings = ledgerEntries
-      .filter((e) => e.type === "EARN" || e.type === "debt_repay_population")
-      .reduce((sum, e) => sum + e.amount, 0);
-    const spendings = ledgerEntries
-      .filter((e) => e.type === "SPEND")
-      .reduce((sum, e) => sum + e.amount, 0);
-    return earnings - spendings;
-  }, [ledgerEntries]);
 
   const extraByMunicipality = useMemo(() => {
     const map = new Map<string, number>();
@@ -109,45 +95,6 @@ export default function EstadisticasPage() {
 
     return groups;
   }, [aragonRankingRows]);
-
-  const handleAddPopulation = async (municipalityId: string) => {
-    const amount = parseInt(amountToSpend, 10) || 0;
-    if (amount <= 0 || amount > balance || balance < 0) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const now = getCurrentTimestamp();
-      const today = getTodayString();
-
-      await db.transaction("rw", db.populationTransactions, db.ledger, async () => {
-        await db.populationTransactions.add({
-          id: makeId(),
-          municipalityId: municipalityId,
-          date: today,
-          amount: amount,
-          reason: "Manual spend",
-          createdAt: now,
-        });
-
-        await db.ledger.add({
-          id: makeId(),
-          type: "SPEND",
-          amount: amount,
-          date: today,
-          reason: `Spent on population`,
-          createdAt: now,
-        });
-      });
-
-      setAmountToSpend("1");
-    } catch (error) {
-      console.error("Error adding population:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const provinceTableRows = useMemo(() => {
     const rows = rankingProvincias.map((entry) => {
@@ -220,7 +167,7 @@ export default function EstadisticasPage() {
   }, [municipalities, extraByMunicipality]);
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-12 p-8">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
 
       <SpendPointsForm />
@@ -239,7 +186,7 @@ export default function EstadisticasPage() {
                     <th className="border-b border-gray-200 px-4 py-2 text-left">Puesto</th>
                     <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
                     <th className="border-b border-gray-200 px-4 py-2 text-right">Población</th>
-                    <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Nacional</th>
+                    <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto Nacional</th>
                     <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
                   </tr>
                 </thead>
@@ -248,10 +195,10 @@ export default function EstadisticasPage() {
                     <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="px-4 py-2">{row.aragonRanking}</td>
                       <td className="px-4 py-2">{row.name}</td>
-                      <td className="px-4 py-2 text-right font-semibold">
+                      <td className="px-4 py-2 text-right font-semibold text-yellow-200">
                         {row.total.toLocaleString("es-ES")}
                       </td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="px-4 py-2 text-center font-semibold text-yellow-200 italic">
                         {row.puesto_nue !== null ? row.puesto_nue.toLocaleString("es-ES") : "-"}
                       </td>
                       <td className="px-4 py-2">{row.province}</td>
@@ -274,84 +221,59 @@ export default function EstadisticasPage() {
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
         </summary>
         <div className="px-4 pb-4">
-          <div className="mb-4 flex items-center gap-4">
-            <label className="text-sm font-medium">Cantidad a gastar:</label>
-            <input
-              type="number"
-              min="1"
-              value={amountToSpend}
-              onChange={(e) => setAmountToSpend(e.target.value)}
-              className="w-24 rounded border border-gray-300 px-3 py-1"
-            />
-            <span className="text-sm text-gray-600">
-              Saldo: <span className="font-semibold">{balance.toLocaleString("es-ES")}</span>
-            </span>
-          </div>
           <div className="overflow-x-auto rounded border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-black">
                 <tr>
                   <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
                   <th className="border-b border-gray-200 px-4 py-2 text-right">Población Nueva</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Nuevo</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto Nuevo</th>
                   <th className="border-b border-gray-200 px-4 py-2 text-right">Población Base</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-right">Puesto Antiguo</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto Antiguo</th>
                   <th className="border-b border-gray-200 px-4 py-2 text-right">Diferencia</th>
-                  <th className="border-b border-gray-200 px-4 py-2 text-center">Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {(["zaragoza", "huesca", "teruel"] as const).map((provinceKey) => {
                   const rows = aragonByProvince[provinceKey] ?? [];
-                  const displayName = rows[0]?.province ?? provinceKey.toUpperCase();
 
                   return (
                     <Fragment key={provinceKey}>
-                      <tr className="bg-gray-50">
-                        <td className="px-4 py-2 font-semibold" colSpan={7}>
-                          {displayName}
-                        </td>
-                      </tr>
                       {rows.length > 0 ? (
                         rows.map((row) => {
-                          const deltaPuesto = row.delta_puesto !== null ? row.delta_puesto : 0;
+                          const extraPopulation = Math.max(0, row.total - row.base);
                           const differenceDisplay =
-                            deltaPuesto > 0
-                              ? `+${deltaPuesto}`
-                              : deltaPuesto < 0
-                              ? `${deltaPuesto}`
+                            extraPopulation > 0
+                              ? `+${extraPopulation.toLocaleString("es-ES")}`
                               : "—";
                           return (
                             <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
                               <td className="px-4 py-2">{row.name}</td>
-                              <td className="px-4 py-2 text-right font-semibold">
+                              <td className="px-4 py-2 text-right font-semibold text-yellow-200">
                                 {row.total.toLocaleString("es-ES")}
                               </td>
-                              <td className="px-4 py-2 text-right">
-                                {(row as any).provincialRanking ?? "-"}
+                              <td className="px-4 py-2 text-center text-yellow-200 italic">
+                                {row.puesto_nue !== null ? row.puesto_nue.toLocaleString("es-ES") : "-"}
                               </td>
                               <td className="px-4 py-2 text-right">
                                 {row.base.toLocaleString("es-ES")}
                               </td>
-                              <td className="px-4 py-2 text-right">
+                              <td className="px-4 py-2 text-center italic">
                                 {row.puesto_ant !== null ? row.puesto_ant.toLocaleString("es-ES") : "-"}
                               </td>
-                              <td className="px-4 py-2 text-right">{differenceDisplay}</td>
-                              <td className="px-4 py-2 text-center">
-                                <button
-                                  onClick={() => handleAddPopulation(row.municipalityId)}
-                                  disabled={isSubmitting || balance < parseInt(amountToSpend, 10) || balance < 0}
-                                  className="rounded bg-blue-500 px-3 py-1 text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                >
-                                  Añadir población
-                                </button>
+                              <td
+                                className={`px-4 py-2 text-right ${
+                                  differenceDisplay === "—" ? "" : "text-[#34a853]"
+                                }`}
+                              >
+                                {differenceDisplay}
                               </td>
                             </tr>
                           );
                         })
                       ) : (
                         <tr>
-                          <td className="px-4 py-2 text-gray-500" colSpan={7}>
+                          <td className="px-4 py-2 text-gray-500" colSpan={6}>
                             Sin municipios
                           </td>
                         </tr>

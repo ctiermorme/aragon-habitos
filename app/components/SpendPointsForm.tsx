@@ -122,13 +122,13 @@ export default function SpendPointsForm() {
     <div className="space-y-4 rounded border border-gray-200 bg-white p-6">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Saldo y Gastar puntos</h2>
+          <h2 className="text-xl font-semibold text-black">Saldo y Gastar puntos</h2>
         </div>
       </div>
 
       {/* Saldo actual card */}
       <div className="rounded border border-gray-200 bg-blue-50 p-4">
-        <div className="text-sm font-semibold text-gray-600">Saldo actual</div>
+        <div className="text-sm font-semibold text-black">Saldo actual</div>
         <div className={`mt-2 text-4xl font-bold ${balance < 0 ? "text-red-600" : "text-blue-600"}`}>
           {balance}
         </div>
@@ -149,14 +149,14 @@ export default function SpendPointsForm() {
 
         {/* Municipality dropdown */}
         <div>
-          <label htmlFor="municipality" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="municipality" className="block text-sm font-medium text-black">
             Municipio
           </label>
           <select
             id="municipality"
             value={selectedMunicipalityId}
             onChange={(e) => setSelectedMunicipalityId(e.target.value)}
-            className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-black shadow-sm focus:border-blue-500 focus:outline-none"
           >
             <option value="">-- Selecciona un municipio --</option>
             {municipalities.map((m) => (
@@ -169,7 +169,7 @@ export default function SpendPointsForm() {
 
         {/* Amount input */}
         <div>
-          <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="amount" className="block text-sm font-medium text-black">
             Puntos a gastar (mín. 1)
           </label>
           <input
@@ -179,7 +179,7 @@ export default function SpendPointsForm() {
             max={balance}
             value={amountToSpend}
             onChange={(e) => setAmountToSpend(e.target.value)}
-            className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none"
+            className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm text-black shadow-sm focus:border-blue-500 focus:outline-none"
             disabled={isSubmitting}
           />
         </div>
@@ -188,7 +188,7 @@ export default function SpendPointsForm() {
         <button
           type="submit"
           disabled={!isValid || isSubmitting}
-          className="w-full rounded border border-green-300 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 disabled:opacity-50"
+          className="w-full rounded bg-green-600 px-4 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600"
         >
           {isSubmitting ? "Procesando..." : "Aumentar población"}
         </button>
