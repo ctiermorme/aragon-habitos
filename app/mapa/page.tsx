@@ -1,4 +1,10 @@
-import MapaLeafletClient from "./MapaLeafletClient";
+"use client";
+
+import dynamic from "next/dynamic";
+
+const MapaLeafletClient = dynamic(() => import("./MapaLeafletClient"), {
+  ssr: false,
+});
 
 export default function MapaPage() {
   return (
