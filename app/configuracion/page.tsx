@@ -535,9 +535,9 @@ export default function ConfiguracionPage() {
                 className="rounded border border-gray-300 px-3 py-2 text-black"
               >
                 <option value="">-- Selecciona una provincia --</option>
-                <option value="Zaragoza">Zaragoza</option>
-                <option value="Huesca">Huesca</option>
-                <option value="Teruel">Teruel</option>
+                <option value="ZARAGOZA">ZARAGOZA</option>
+                <option value="HUESCA">HUESCA</option>
+                <option value="TERUEL">TERUEL</option>
               </select>
             </div>
 

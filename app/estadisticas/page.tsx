@@ -20,6 +20,8 @@ function normalizeName(value: string): string {
 }
 
 export default function EstadisticasPage() {
+  const [searchAragon, setSearchAragon] = useState("");
+  const [searchProvince, setSearchProvince] = useState("");
 
   const municipalities = useLiveQuery(async () => db.municipalities.toArray(), [], []);
   const populationTransactions = useLiveQuery(
@@ -167,7 +169,7 @@ export default function EstadisticasPage() {
   }, [municipalities, extraByMunicipality]);
 
   return (
-    <div className="space-y-12 p-8">
+    <div className="space-y-12 p-8 pb-96">
       <h1 className="text-3xl font-bold">Estadísticas</h1>
 
       <SpendPointsForm />
@@ -178,6 +180,15 @@ export default function EstadisticasPage() {
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
         </summary>
         <div className="px-4 pb-4">
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Buscar municipio..."
+              value={searchAragon}
+              onChange={(e) => setSearchAragon(e.target.value)}
+              className="w-full rounded border border-gray-300 bg-gray-800 px-4 py-2 text-white placeholder-gray-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+          </div>
           {aragonRankingRows.length > 0 ? (
             <div className="overflow-x-auto rounded border border-gray-200">
               <table className="min-w-full text-sm">
@@ -191,7 +202,9 @@ export default function EstadisticasPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {aragonRankingRows.map((row) => (
+                  {aragonRankingRows
+                    .filter((row) => normalizeName(row.name).includes(normalizeName(searchAragon)))
+                    .map((row) => (
                     <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
                       <td className="px-4 py-2">{row.aragonRanking}</td>
                       <td className="px-4 py-2">{row.name}</td>
@@ -221,6 +234,15 @@ export default function EstadisticasPage() {
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
         </summary>
         <div className="px-4 pb-4">
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Buscar municipio..."
+              value={searchProvince}
+              onChange={(e) => setSearchProvince(e.target.value)}
+              className="w-full rounded border border-gray-300 bg-gray-800 px-4 py-2 text-white placeholder-gray-400 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500"
+            />
+          </div>
           <div className="overflow-x-auto rounded border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-black">
@@ -234,21 +256,24 @@ export default function EstadisticasPage() {
                 </tr>
               </thead>
               <tbody>
-                {(["zaragoza", "huesca", "teruel"] as const).map((provinceKey) => {
+                {(["zaragoza", "huesca", "teruel"] as const).map((provinceKey, provinceIndex) => {
                   const rows = aragonByProvince[provinceKey] ?? [];
 
                   return (
                     <Fragment key={provinceKey}>
                       {rows.length > 0 ? (
-                        rows.map((row) => {
+                        rows
+                          .filter((row) => normalizeName(row.name).includes(normalizeName(searchProvince)))
+                          .map((row) => {
                           const extraPopulation = Math.max(0, row.total - row.base);
                           const differenceDisplay =
                             extraPopulation > 0
                               ? `+${extraPopulation.toLocaleString("es-ES")}`
                               : "—";
+                          const isCapital = ["Zaragoza", "Huesca", "Teruel"].includes(row.name);
                           return (
                             <tr key={row.municipalityId} className="border-b border-gray-200 hover:bg-gray-50">
-                              <td className="px-4 py-2">{row.name}</td>
+                              <td className={`px-4 py-2 ${isCapital ? "font-extrabold text-white" : ""}`}>{row.name}</td>
                               <td className="px-4 py-2 text-right font-semibold text-yellow-200">
                                 {row.total.toLocaleString("es-ES")}
                               </td>
@@ -276,6 +301,12 @@ export default function EstadisticasPage() {
                           <td className="px-4 py-2 text-gray-500" colSpan={6}>
                             Sin municipios
                           </td>
+                        </tr>
+                      )}
+                      {/* Añadir separación después de Zaragoza y Huesca */}
+                      {provinceIndex < 2 && (
+                        <tr className="h-12">
+                          <td colSpan={6} className="bg-gray-700/50"></td>
                         </tr>
                       )}
                     </Fragment>
