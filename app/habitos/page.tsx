@@ -14,6 +14,7 @@ import {
 export default function HabitosPage() {
   const [pendingHabitId, setPendingHabitId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [habitMultipliers, setHabitMultipliers] = useState<Record<string, string>>({});
 
   const today = getTodayString();
 
@@ -69,13 +70,55 @@ export default function HabitosPage() {
 
   const todayTotalPoints = todaySummary?.totalPoints ?? computedTotalPoints;
 
+  const getMultiplierValue = (habitId: string): number => {
+    const raw = habitMultipliers[habitId] ?? "1";
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return 1;
+    }
+    return parsed;
+  };
+
+  const handleMultiplierChange = (habitId: string, value: string) => {
+    if (value === "") {
+      setHabitMultipliers((prev) => ({ ...prev, [habitId]: "" }));
+      return;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+
+    setHabitMultipliers((prev) => ({
+      ...prev,
+      [habitId]: String(Math.max(1, parsed)),
+    }));
+  };
+
+  const incrementMultiplier = (habitId: string) => {
+    const nextValue = getMultiplierValue(habitId) + 1;
+    setHabitMultipliers((prev) => ({ ...prev, [habitId]: String(nextValue) }));
+  };
+
+  const decrementMultiplier = (habitId: string) => {
+    const nextValue = Math.max(1, getMultiplierValue(habitId) - 1);
+    setHabitMultipliers((prev) => ({ ...prev, [habitId]: String(nextValue) }));
+  };
+
   const handleLogHabit = async (
     habit: Habit,
-    status: "yes" | "no" | "null"
+    status: "yes" | "no" | "null",
+    multiplier = 1
   ) => {
     const now = getCurrentTimestamp();
+    const safeMultiplier = Math.max(1, Math.floor(multiplier));
     const pointsEarned =
-      status === "yes" ? habit.pointsYes : status === "no" ? habit.pointsNo : 0;
+      status === "yes"
+        ? habit.pointsYes * safeMultiplier
+        : status === "no"
+        ? habit.pointsNo * safeMultiplier
+        : 0;
 
     setErrorMessage(null);
     setPendingHabitId(habit.id);
@@ -192,6 +235,7 @@ export default function HabitosPage() {
             {habits?.length ? (
               habits.map((habit) => {
                 const todayStatus = logsByHabitId.get(habit.id)?.status ?? "null";
+                const multiplierValue = getMultiplierValue(habit.id);
                 const isPending = pendingHabitId === habit.id;
                 const yesIsActive = todayStatus === "yes";
                 const noIsActive = todayStatus === "no";
@@ -213,44 +257,92 @@ export default function HabitosPage() {
                     <td className={`border border-gray-200 px-3 py-2 text-center text-lg ${todayStatusColorClass}`}>
                       {todayStatusIcon}
                     </td>
-                    <td className="border border-gray-200 px-3 py-2 text-center">
-                      <div className="flex flex-wrap justify-center gap-2">
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => handleLogHabit(habit, "yes")}
-                          className={`rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
-                            yesIsActive
-                              ? "border-green-700 bg-green-700 text-white"
-                              : "border-green-300 bg-green-50 text-green-700"
-                          }`}
-                        >
-                          ✅ Yes
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => handleLogHabit(habit, "no")}
-                          className={`rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
-                            noIsActive
-                              ? "border-red-700 bg-red-700 text-white"
-                              : "border-red-300 bg-red-50 text-red-700"
-                          }`}
-                        >
-                          ❌ No
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => handleLogHabit(habit, "null")}
-                          className={`rounded border px-2 py-1 text-xs font-semibold disabled:opacity-50 ${
-                            nullIsActive
-                              ? "border-gray-700 bg-gray-700 text-white"
-                              : "border-gray-300 bg-gray-50 text-gray-700"
-                          }`}
-                        >
-                          ➖ Null
-                        </button>
+                    <td className="border border-gray-200 px-3 py-2">
+                      <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <div aria-hidden="true" />
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleLogHabit(habit, "yes", multiplierValue)}
+                            className={`rounded-md border border-transparent px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              yesIsActive
+                                ? "bg-emerald-200 text-emerald-800 ring-1 ring-inset ring-emerald-400/80"
+                                : "bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-300/80 hover:bg-emerald-200"
+                            }`}
+                          >
+                            ✅ Sí
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleLogHabit(habit, "no", multiplierValue)}
+                            className={`rounded-md border border-transparent px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              noIsActive
+                                ? "bg-red-200 text-red-800 ring-1 ring-inset ring-red-400/80"
+                                : "bg-red-100 text-red-700 ring-1 ring-inset ring-red-300/80 hover:bg-red-200"
+                            }`}
+                          >
+                            ❌ No
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleLogHabit(habit, "null")}
+                            className={`rounded-md border border-transparent px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                              nullIsActive
+                                ? "bg-slate-600 text-slate-100 ring-1 ring-inset ring-slate-400/90"
+                                : "bg-slate-700 text-slate-100 ring-1 ring-inset ring-slate-500/90 hover:bg-slate-600"
+                            }`}
+                          >
+                            ➖ Null
+                          </button>
+                        </div>
+
+                        <div className="ml-auto flex items-center gap-2 justify-self-end">
+                          <div className="flex items-center gap-2 rounded-lg border border-blue-500/60 bg-gradient-to-r from-blue-950 to-blue-900 px-3 py-1.5 shadow-[0_0_0_1px_rgba(59,130,246,0.15)]">
+                          <span className="text-xs font-bold text-blue-100">x</span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            disabled={isPending}
+                            value={habitMultipliers[habit.id] ?? "1"}
+                            onChange={(event) =>
+                              handleMultiplierChange(
+                                habit.id,
+                                event.target.value.replace(/[^0-9]/g, "")
+                              )
+                            }
+                            onBlur={() => {
+                              const normalized = String(getMultiplierValue(habit.id));
+                              setHabitMultipliers((prev) => ({ ...prev, [habit.id]: normalized }));
+                            }}
+                            className="w-14 rounded-md border border-blue-400/40 bg-blue-800/60 px-2 py-1 text-center text-xs font-semibold text-blue-100 outline-none ring-0 focus:border-blue-300"
+                            aria-label={`Multiplicador para ${habit.name}`}
+                          />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => incrementMultiplier(habit.id)}
+                              className="h-4 w-4 rounded-sm bg-green-600/90 text-[10px] leading-none text-white transition hover:bg-green-500 disabled:opacity-50"
+                              aria-label={`Subir multiplicador de ${habit.name}`}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => decrementMultiplier(habit.id)}
+                              className="h-4 w-4 rounded-sm bg-red-600/90 text-[10px] leading-none text-white transition hover:bg-red-500 disabled:opacity-50"
+                              aria-label={`Bajar multiplicador de ${habit.name}`}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </td>
                   </tr>
