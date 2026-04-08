@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   db,
@@ -10,6 +10,14 @@ import {
   HabitLog,
   makeId,
 } from "../../lib/db";
+
+const PREVIOUS_DAY_NULL_CHECK_KEY = "previousDayNullCheckDate";
+
+function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+}
 
 export default function HabitosPage() {
   const [pendingHabitId, setPendingHabitId] = useState<string | null>(null);
@@ -69,6 +77,119 @@ export default function HabitosPage() {
   }, [habits, todayLogs]);
 
   const todayTotalPoints = todaySummary?.totalPoints ?? computedTotalPoints;
+
+  useEffect(() => {
+    if (!habits) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkPreviousDayAllNull = async () => {
+      try {
+        const yesterday = addDays(today, -1);
+
+        await db.transaction(
+          "rw",
+          db.habitLogs,
+          db.dailySummaries,
+          db.ledger,
+          db.appState,
+          async () => {
+            const checkState = await db.appState.get(PREVIOUS_DAY_NULL_CHECK_KEY);
+            if (checkState?.value === today) {
+              return;
+            }
+
+            const activeHabits = habits.filter((habit) => habit.active);
+            if (activeHabits.length === 0) {
+              await db.appState.put({ key: PREVIOUS_DAY_NULL_CHECK_KEY, value: today });
+              return;
+            }
+
+            const previousDayLogs = await db.habitLogs.where("date").equals(yesterday).toArray();
+            const logByHabitId = new Map(previousDayLogs.map((log) => [log.habitId, log]));
+
+            const allWereNull = activeHabits.every((habit) => {
+              const log = logByHabitId.get(habit.id);
+              return !log || log.status === "null";
+            });
+
+            if (allWereNull) {
+              const now = getCurrentTimestamp();
+              const previousSummary = await db.dailySummaries.get(yesterday);
+              const previousTotalPoints =
+                previousSummary?.totalPoints ??
+                previousDayLogs.reduce((sum, log) => sum + (log.pointsEarned ?? 0), 0);
+
+              for (const habit of activeHabits) {
+                const existingLog = logByHabitId.get(habit.id);
+
+                if (existingLog) {
+                  await db.habitLogs.update(existingLog.id, {
+                    status: "no",
+                    pointsEarned: habit.pointsNo,
+                    updatedAt: now,
+                  });
+                } else {
+                  await db.habitLogs.add({
+                    id: makeId(),
+                    date: yesterday,
+                    habitId: habit.id,
+                    status: "no",
+                    pointsEarned: habit.pointsNo,
+                    createdAt: now,
+                    updatedAt: now,
+                  });
+                }
+              }
+
+              const updatedLogs = await db.habitLogs.where("date").equals(yesterday).toArray();
+              const totalPoints = updatedLogs.reduce(
+                (sum, log) => sum + (log.pointsEarned ?? 0),
+                0
+              );
+              const habitsCompleted = updatedLogs.filter((log) => log.status === "yes").length;
+              const habitsLogged = updatedLogs.filter((log) => log.status !== "null").length;
+
+              await db.dailySummaries.put({
+                date: yesterday,
+                totalPoints,
+                habitsCompleted,
+                habitsLogged,
+                updatedAt: now,
+              });
+
+              const delta = totalPoints - previousTotalPoints;
+
+              if (delta !== 0) {
+                await db.ledger.add({
+                  id: makeId(),
+                  type: "EARN",
+                  amount: delta,
+                  date: yesterday,
+                  description: "Auto NO for previous empty day",
+                  createdAt: now,
+                });
+              }
+            }
+
+            await db.appState.put({ key: PREVIOUS_DAY_NULL_CHECK_KEY, value: today });
+          }
+        );
+      } catch {
+        if (!cancelled) {
+          setErrorMessage("Failed to verify previous day habits.");
+        }
+      }
+    };
+
+    checkPreviousDayAllNull();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [habits, today]);
 
   const getMultiplierValue = (habitId: string): number => {
     const raw = habitMultipliers[habitId] ?? "1";
