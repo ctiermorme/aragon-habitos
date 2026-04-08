@@ -19,6 +19,10 @@ function normalizeName(value: string): string {
     .trim();
 }
 
+function municipalityKey(name: string, province?: string): string {
+  return `${normalizeName(name)}|${normalizeName(province ?? "")}`;
+}
+
 export default function EstadisticasPage() {
   const [searchAragon, setSearchAragon] = useState("");
   const [searchProvince, setSearchProvince] = useState("");
@@ -98,6 +102,67 @@ export default function EstadisticasPage() {
     return groups;
   }, [aragonRankingRows]);
 
+  const municipalitiesWithNewRankRows = useMemo(() => {
+    const updatedAragonByKey = new Map<string, number>();
+    for (const row of aragonRankingRows) {
+      updatedAragonByKey.set(municipalityKey(row.name, row.province), row.total);
+    }
+
+    const existingKeys = new Set<string>();
+    const rows = rankingMunicipios.map((entry) => {
+      const key = municipalityKey(entry.municipio, entry.provincia);
+      existingKeys.add(key);
+
+      return {
+        municipio: entry.municipio,
+        provincia: entry.provincia,
+        poblacion: updatedAragonByKey.get(key) ?? entry.poblacion,
+      };
+    });
+
+    // Include Aragon municipalities that may cross +5000 and were not present in the base list.
+    for (const row of aragonRankingRows) {
+      if (row.total < 5000) {
+        continue;
+      }
+      const key = municipalityKey(row.name, row.province);
+      if (existingKeys.has(key)) {
+        continue;
+      }
+
+      rows.push({
+        municipio: row.name,
+        provincia: row.province,
+        poblacion: row.total,
+      });
+      existingKeys.add(key);
+    }
+
+    const sorted = rows
+      .filter((row) => row.poblacion >= 5000)
+      .sort((a, b) => {
+        if (b.poblacion !== a.poblacion) {
+          return b.poblacion - a.poblacion;
+        }
+        const byName = a.municipio.localeCompare(b.municipio, "es");
+        if (byName !== 0) {
+          return byName;
+        }
+        return a.provincia.localeCompare(b.provincia, "es");
+      });
+
+    return sorted.map((row, index) => {
+      const provinceKey = normalizeName(row.provincia);
+      const isAragon = ARAGON_PROVINCES.includes(provinceKey);
+
+      return {
+        ...row,
+        puesto_nue: index + 1,
+        isAragon,
+      };
+    });
+  }, [aragonRankingRows]);
+
   const provinceTableRows = useMemo(() => {
     const rows = rankingProvincias.map((entry) => {
       const key = normalizeName(entry.provincia);
@@ -174,7 +239,7 @@ export default function EstadisticasPage() {
 
       <SpendPointsForm />
 
-      <details className="rounded border border-gray-200" open>
+      <details className="rounded border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
           <span>Municipios de Aragón (ordenados por población)</span>
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
@@ -228,7 +293,7 @@ export default function EstadisticasPage() {
         </div>
       </details>
 
-      <details className="rounded border border-gray-200" open>
+      <details className="rounded border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
           <span>Municipios por provincia (ordenados por población)</span>
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
@@ -318,7 +383,57 @@ export default function EstadisticasPage() {
         </div>
       </details>
 
-      <details className="rounded border border-gray-200" open>
+      <details className="rounded border border-gray-200">
+        <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
+          <span>Municipios de españa (+5000)</span>
+          <span className="text-base font-semibold text-white">Desplegar ▾</span>
+        </summary>
+        <div className="px-4 pb-4">
+          <div className="overflow-x-auto rounded border border-gray-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100 text-black">
+                <tr>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left">Municipio</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-right">Población</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-center">Puesto Nuevo</th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left">Provincia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {municipalitiesWithNewRankRows.length > 0 ? (
+                  municipalitiesWithNewRankRows.map((row) => (
+                    <tr
+                      key={`new-rank-${municipalityKey(row.municipio, row.provincia)}`}
+                      className={
+                        row.isAragon
+                          ? "border-b border-gray-200 bg-blue-950/45 text-blue-50 hover:bg-blue-900/55"
+                          : "border-b border-gray-200 hover:bg-gray-50"
+                      }
+                    >
+                      <td className="px-4 py-2">{row.municipio}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-yellow-200">
+                        {row.poblacion.toLocaleString("es-ES")}
+                      </td>
+                      <td className="px-4 py-2 text-center text-yellow-200 italic">
+                        {row.puesto_nue.toLocaleString("es-ES")}
+                      </td>
+                      <td className="px-4 py-2 text-sm">{row.provincia}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-gray-500">
+                      No hay municipios con puesto nuevo disponible.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <details className="rounded border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
           <span>Provincias de España (ordenadas por población)</span>
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
@@ -362,7 +477,7 @@ export default function EstadisticasPage() {
         </div>
       </details>
 
-      <details className="rounded border border-gray-200" open>
+      <details className="rounded border border-gray-200">
         <summary className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3 text-xl font-semibold">
           <span>Comunidades autónomas (ordenadas por población)</span>
           <span className="text-base font-semibold text-white">Desplegar ▾</span>
